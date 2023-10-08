@@ -43,7 +43,7 @@ services:
       build: ./
       container_name: celery
       command: bash -c ". venv/bin/activate
-             && celery --app app.celery.celery_app worker --loglevel=info --logfile=logs/celery.log"
+             && celery --app app.celery.celery_app worker --loglevel=info --logfile=./logs/celery.log"
       environment:
         - DB_URL=postgresql+asyncpg://postgres:admin@database:5432/tasks
         - CELERY_BROKER_URL=amqp://nik:123@rabbitmq:5672/tasks

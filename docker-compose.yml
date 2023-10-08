@@ -1,0 +1,96 @@
+version: '3.3'
+services:
+    app:
+      build: ./
+      container_name: app
+      command: bash -c ". venv/bin/activate
+              && alembic upgrade head
+              && python main.py"
+      environment:
+        - DB_URL=postgresql+asyncpg://postgres:admin@database:5432/tasks
+        - CELERY_BROKER_URL=pyamqp://nik:123@rabbitmq:5672/tasks
+        - CELERY_BACKEND_URL=db+postgresql+psycopg2://postgres:admin@database:5432/tasks
+      restart: always
+      depends_on:
+        - database
+      ports:
+        - 8000:8000
+
+    database:
+      user: root
+      image: postgres:15
+      restart: always
+      volumes:
+        - ./pg_db:/var/lib/postgresql/data/
+      environment:
+        - POSTGRES_USER=postgres
+        - POSTGRES_PASSWORD=admin
+        - POSTGRES_DB=tasks
+      ports:
+        - 5433:5432
+    
+    rabbitmq:
+      image: rabbitmq:3-management
+      environment:
+        - RABBITMQ_DEFAULT_USER=nik
+        - RABBITMQ_DEFAULT_PASS=123
+        - RABBITMQ_DEFAULT_VHOST=tasks
+      ports:
+        - 15672:15672
+
+    
+    celery:
+      build: ./
+      container_name: celery
+      command: bash -c ". venv/bin/activate
+             && celery --app app.celery.celery_app worker --loglevel=info --logfile=logs/celery.log"
+      environment:
+        - DB_URL=postgresql+asyncpg://postgres:admin@database:5432/tasks
+        - CELERY_BROKER_URL=amqp://nik:123@rabbitmq:5672/tasks
+        - CELERY_BACKEND_URL=db+postgresql+psycopg2://postgres:admin@database:5432/tasks
+      depends_on:
+        - database
+        - rabbitmq
+      restart: always
+
+    flower:
+      build: ./
+      container_name: flower
+      command: bash -c ". venv/bin/activate
+             && celery -A app.celery.celery_app flower --broker_api=http://nik:123@rabbitmq:15672/api/tasks" 
+      environment:
+        - DB_URL=postgresql+asyncpg://postgres:admin@database:5432/tasks
+        - CELERY_BROKER_URL=amqp://nik:123@rabbitmq:5672/tasks
+        - CELERY_BACKEND_URL=db+postgresql+psycopg2://postgres:admin@database:5432/tasks
+      depends_on:
+        - database
+        - rabbitmq
+        - celery
+      ports:
+        - 5555:5555
+
+    prometheus:
+      image: prom/prometheus
+      container_name: prometheus
+      ports:
+        - 9090:9090
+      volumes:
+        - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      command:
+        - '--config.file=/etc/prometheus/prometheus.yml'
+      depends_on:
+        - flower
+
+    grafana:
+      image: grafana/grafana-enterprise
+      container_name: grafana
+      ports:
+        - 3000:3000
+      volumes:
+        - grafana-storage:/var/lib/grafana
+        - ./grafana/provisioning/:/etc/grafana/provisioning/
+        - ./grafana/dashboards/:/var/lib/grafana/dashboards/
+      restart: always
+
+volumes:
+  grafana-storage:

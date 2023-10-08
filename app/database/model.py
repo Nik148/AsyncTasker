@@ -7,7 +7,7 @@ import pickle
 class Task(Base):
     __tablename__ = "task"
 
-    id = Column(Integer, primary_key=True, autoincrement=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     task_id = Column(String(155))
     status = Column(String(50))
     result = Column(BYTEA)

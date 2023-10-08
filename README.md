@@ -17,6 +17,11 @@ docker-compose up
 ### Flower
 Переходим по url: http://localhost:5555/
 ## Тестирование
+Перед тестированием необходимо запустить тестовый воркер celery
+```
+celery --app test.test_worker worker --loglevel=info
+```
+Для тестирования воспользуемся командой
 ```
 pytest test
 ```
